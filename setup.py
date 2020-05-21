@@ -1,14 +1,13 @@
 # coding: utf-8
 from distutils.core import setup
 
-import mellophone
 
 with open('README.md', encoding='utf8') as file:
     long_description = file.read()
 
 setup(
     name='mellophone-valve',
-    version=mellophone.__version__,
+    version='0.1',
     py_modules=['mellophone'],
     url='https://github.com/CourseOrchestra/mellophone-valve',
     license='MIT',
@@ -16,7 +15,7 @@ setup(
     author_email='maria.prudyvus@curs.ru',
     description='Python mellophone requests wrapper ',
     long_description=long_description,
-    install_requires=[
+    requires=[
         'requests',
         'xmltodict'
     ],
