@@ -15,7 +15,7 @@ setup(
     author_email='maria.prudyvus@curs.ru',
     description='Python mellophone requests wrapper ',
     long_description=long_description,
-    requires=[
+    install_requires=[
         'requests',
         'xmltodict'
     ],
