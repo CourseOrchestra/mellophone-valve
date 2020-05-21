@@ -1,12 +1,33 @@
 # coding: utf-8
-
-import xmltodict
-import requests
-
+__version__ = '0.1'
+import functools
 from http import HTTPStatus
 
-from exceptions import ForbiddenError, NotFoundError, IncorrectMellophoneUrlError
-from decorators import default_sesid
+import requests
+import xmltodict
+
+
+class ForbiddenError(Exception):
+    pass
+
+
+class NotFoundError(Exception):
+    pass
+
+
+class IncorrectMellophoneUrlError(Exception):
+    pass
+
+
+def default_sesid(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not kwargs.get('ses_id'):
+            kwargs['ses_id'] = self.session_id
+
+        return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class Mellophone:
@@ -27,7 +48,6 @@ class Mellophone:
         self._base_url = base_url.rstrip('/')
         if 'Mellophone запущен' not in self.__send_request(''):
             raise IncorrectMellophoneUrlError
-
 
     def __send_request(self, url):
         url = f'{self._base_url}/{url}'
