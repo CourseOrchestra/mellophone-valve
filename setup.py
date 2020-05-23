@@ -7,7 +7,7 @@ with open('README.md', encoding='utf8') as file:
 
 setup(
     name='mellophone-valve',
-    version='0.1',
+    version='1.0',
     py_modules=['mellophone'],
     url='https://github.com/CourseOrchestra/mellophone-valve',
     license='MIT',

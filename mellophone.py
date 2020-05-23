@@ -111,7 +111,7 @@ class Mellophone:
         except ForbiddenError:
             return False
         else:
-            return xmltodict.parse(response)
+            return xmltodict.parse(response)['user']
 
     @default_sesid
     def change_app_ses_id(self, new_ses_id, ses_id=None):
@@ -144,7 +144,7 @@ class Mellophone:
         """
         url = '/checkname?sesid={}&name={}'.format(ses_id, name)
         response = self.__send_request(url)
-        return xmltodict.parse(response)
+        return xmltodict.parse(response)['user']
 
     def import_gp(self):
         """
@@ -197,7 +197,7 @@ class Mellophone:
             url += '&ip={}'.format(ip)
 
         response = self.__send_request(url)
-        return xmltodict.parse(response)
+        return xmltodict.parse(response)['user']
 
     def get_provider_list(self, login, password, gp=None, ip=None):
         """Возвращает информацию о провайдерах с группой gp
