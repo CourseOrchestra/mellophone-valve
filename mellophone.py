@@ -1,5 +1,7 @@
 # coding: utf-8
 import functools
+import json
+from dataclasses import dataclass
 from http import HTTPStatus
 
 import requests
@@ -29,33 +31,26 @@ def default_sesid(method):
     return wrapper
 
 
+@dataclass
 class Mellophone:
     """Класс для работы с mellophone
     Подробное описание сервлетов указано в https://corchestra.ru/wiki/index.php?title=Mellophone
     """
+    _base_url: str
+    session_id: str = None
 
-    def __init__(self, base_url, session_id=None):
-        """
-
-        Arguments:
-            base_url {str} -- [Базовый адрес меллофона]
-
-        Keyword Arguments:
-            session_id {str} -- [Можно передать ид сессии, полученной извне] (default: {None})
-        """
-        self.session_id = session_id
-        self._base_url = base_url.rstrip('/')
-        if 'Mellophone запущен' not in self.__send_request(''):
-            raise IncorrectMellophoneUrlError
-
-    def __send_request(self, url):
-        url = f'{self._base_url}/{url}'
-        response = requests.get(url)
+    def __send_request(self, url, method="get", data=None):
+        url = f'{self._base_url.rstrip("/")}/{url.lstrip("/")}'
+        if method == 'post':
+            response = requests.post(url, data=data)
+        else:
+            response = requests.get(url)
         if response.status_code == HTTPStatus.FORBIDDEN:
             raise ForbiddenError
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise NotFoundError
         response.raise_for_status()
+
         return response.text
 
     @default_sesid
@@ -63,11 +58,9 @@ class Mellophone:
         """Аутентифицирует сессию;
             Если пара "логин-пароль" аутентифицирует сессию приложения ses_id;
             Если пара "логин-пароль" неверна, выкидывает Forbidden
-
         Arguments:
             login {str} -- Логин пользователя
             password {str} -- Пароль пользователя
-
         Keyword Arguments:
             ses_id {str} -- Идентификатор сессии (default: {None})
             gp {str} -- Группа провайдеров (когда меллофон подключен к нескольким источникам данных) (default: {None})
@@ -87,7 +80,6 @@ class Mellophone:
     @default_sesid
     def logout(self, ses_id=None):
         """Разаутентифицирует указанную сессию приложения или текущую
-
         Keyword Arguments:
             ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
         """
@@ -95,13 +87,23 @@ class Mellophone:
 
         self.__send_request(url)
 
+    def create_user(self, token, user):
+
+        url = f'/user/create?token={token}'
+        user = json.dumps(user)
+        return self.__send_request(url, method="post", data=user)
+
+    def update_user(self, sid, token, user):
+
+        url = f'/user/{sid}?token={token}'
+        user = json.dumps(user)
+        return self.__send_request(url, method="post", data=user)
+
     @default_sesid
     def is_authenticated(self, ses_id=None):
         """Возвращает информацию об аутентифицированном пользователе, если сессия аутентифицирована
-
         Keyword Arguments:
             ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
-
         Returns:
             json -- информация о пользователе
         """
@@ -115,12 +117,10 @@ class Mellophone:
 
     @default_sesid
     def change_app_ses_id(self, new_ses_id, ses_id=None):
-        """Изменяет сессию. 
+        """Изменяет сессию.
             [не уверена, что корректно работает на стороне меллофона]
-
         Arguments:
             new_ses_id {str} -- новая сессия
-
         Keyword Arguments:
             old_ses_id {str} -- старая сессия (по умолчанию текущая) (default: {None})
         """
@@ -130,15 +130,12 @@ class Mellophone:
 
     @default_sesid
     def check_name(self, name, ses_id=None):
-        """Возвращает информацию о пользователе name 
+        """Возвращает информацию о пользователе name
             [любой аутентифицированный пользователь может получить инфу о любом другом пользователе]
-
         Arguments:
             name {str} -- Имя пользователя
-
         Keyword Arguments:
             ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
-
         Returns:
             json -- информация о пользователе
         """
@@ -157,16 +154,13 @@ class Mellophone:
 
     @default_sesid
     def change_pwd(self, old_pwd, new_pwd, ses_id=None):
-        """Изменяет пароль пользователя по sesid 
+        """Изменяет пароль пользователя по sesid
             [дополнительная проверка по паролю]
-
         Arguments:
-            old_pwd {str} -- Старый пароли
+            old_pwd {str} -- Старый пароль
             new_pwd {str} -- Новый пароль
-
         Keyword Arguments:
             ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
-
         Returns:
             [type] -- [description]
         """
@@ -174,17 +168,30 @@ class Mellophone:
             ses_id, old_pwd, new_pwd)
         self.__send_request(url)
 
+    @default_sesid
+    def change_user_pwd(self, username, old_pwd, new_pwd, ses_id=None):
+        """Изменяет пароль пользователя по username (доступно только админам)
+        Arguments:
+            username {str} -- Логин пользователя, которому нужно изменить пароль
+            old_pwd {str} -- Старый пароль
+            new_pwd {str} -- Новый пароль
+        Keyword Arguments:
+            ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+        Returns:
+            [type] -- [description]
+        """
+        url = '/changeuserpwd?sesid={}&oldpwd={}&newpwd={}&username={}'.format(
+            ses_id, old_pwd, new_pwd, username)
+        self.__send_request(url)
+
     def check_credentials(self, login, password, gp=None, ip=None):
         """Возвращает информацию о пользователе, если пара логин-пароль верна
-
         Arguments:
             login {str} -- Логин
             password {str} -- Пароль
-
         Keyword Arguments:
             gp {str} -- Группа провайдеров (default: {None})
             ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
-
         Returns:
             json -- Информация о пользователе
         """
@@ -201,15 +208,12 @@ class Mellophone:
 
     def get_provider_list(self, login, password, gp=None, ip=None):
         """Возвращает информацию о провайдерах с группой gp
-
         Arguments:
             login {str} -- Пользователь, под которым можно получить группу провайдеров
             password {str} -- Пароль пользователя, под которым можно получить группу провайдеров
-
         Keyword Arguments:
             gp {str} -- Группа провайдеров (default: {None})
             ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
-
         Returns:
             list -- Список провайдеров
         """
@@ -225,15 +229,12 @@ class Mellophone:
 
     def get_user_list(self, token, gp, ip=None, pid=None):
         """Возвращает информацию о пользователях провайдера
-
         Arguments:
             token {str} -- Токен безопасности
             gp {str} -- Группа провайдеров
-
         Keyword Arguments:
             ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
             pid {str} -- идентификатор провайдера (default: {None})
-
         Returns:
             list -- Список пользователей провайдера
         """
@@ -245,18 +246,17 @@ class Mellophone:
         if pid:
             url += '&ip={}'.format(ip)
 
-        return self.__send_request(url)
+        response = self.__send_request(url)
+
+        return xmltodict.parse(response)['users']
 
     def set_settings(self, token, lockout_time=None, login_attempts_allowed=None):
         """Изменение настроек меллофона
-
         Arguments:
             token {str} -- Токен безопасности
-
         Keyword Arguments:
             lockouttime {int} -- время в минутах, на которое будет блокироваться пользователь (default: {None})
             loginattemptsallowed {str} -- разрешенное количество неудачных попыток ввода пароля (default: {None})
-
         Returns:
             [type] -- [description]
         """
