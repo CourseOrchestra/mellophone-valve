@@ -1,11 +1,14 @@
 # coding: utf-8
-import functools
 import json
+import logging
 from dataclasses import dataclass
 from http import HTTPStatus
+from uuid import uuid4
 
 import requests
 import xmltodict
+
+from src.utils.case_conversion import camel_to_snake_case
 
 
 class ForbiddenError(Exception):
@@ -20,40 +23,47 @@ class IncorrectMellophoneUrlError(Exception):
     pass
 
 
-def default_sesid(method):
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        if not kwargs.get('ses_id'):
-            kwargs['ses_id'] = self.session_id
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-        return method(self, *args, **kwargs)
 
-    return wrapper
+def xml2json(xml, key='user') -> dict[str, str]:
+    res = xmltodict.parse(xml)['user']
+
+    for key in list(res.keys())[:]:
+        res[key.lstrip('@').lower()] = res.pop(key)
+
+    return res
 
 
 @dataclass
 class Mellophone:
     """Класс для работы с mellophone
-    Подробное описание сервлетов указано в https://corchestra.ru/wiki/index.php?title=Mellophone
+    Подробное описание сервлетов указано в https://courseorchestra.github.io/mellophone2/
     """
     _base_url: str
+    set_settings_token: str
+    user_manage_token: str
     session_id: str = None
 
     def __send_request(self, url, method="get", data=None):
-        url = f'{self._base_url.rstrip("/")}/{url.lstrip("/")}'
+        url = f'{self._base_url}{url}'
         if method == 'post':
+            res = {}
+            for key in data.keys():
+                res[f'@{key}'] = data[key]
+            data = xmltodict.unparse({'user': res})
             response = requests.post(url, data=data)
         else:
             response = requests.get(url)
         if response.status_code == HTTPStatus.FORBIDDEN:
-            raise ForbiddenError
+            raise ForbiddenError(response.text)
         if response.status_code == HTTPStatus.NOT_FOUND:
-            raise NotFoundError
+            raise NotFoundError(response.text)
         response.raise_for_status()
 
         return response.text
 
-    @default_sesid
     def login(self, login, password, ses_id=None, gp=None, ip=None):
         """Аутентифицирует сессию;
             Если пара "логин-пароль" аутентифицирует сессию приложения ses_id;
@@ -66,8 +76,8 @@ class Mellophone:
             gp {str} -- Группа провайдеров (когда меллофон подключен к нескольким источникам данных) (default: {None})
             ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
         """
-        url = '/login?&sesid={}&login={}&pwd={}'.format(
-            ses_id, login, password)
+        ses_id = ses_id or self.session_id or str(uuid4())
+        url = f'/login?sesid={ses_id}&login={login}&pwd={password}'
 
         if gp is not None:
             url += '&gp={}'.format(gp)
@@ -77,20 +87,21 @@ class Mellophone:
 
         self.__send_request(url)
 
-    @default_sesid
+        self.session_id = ses_id
+
     def logout(self, ses_id=None):
         """Разаутентифицирует указанную сессию приложения или текущую
         Keyword Arguments:
             ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
         """
-        url = '/logout?&sesid={}'.format(ses_id)
+        url = '/logout?&sesid={}'.format(ses_id or self.session_id)
 
         self.__send_request(url)
 
-    def create_user(self, token, user):
-
-        url = f'/user/create?token={token}'
-        user = json.dumps(user)
+    def create_user(self, user):
+        url = f'/user/create?token={self.user_manage_token}'
+        if 'password' in user:
+            user['pwd'] = user.pop('password')
         return self.__send_request(url, method="post", data=user)
 
     def update_user(self, sid, token, user):
@@ -99,7 +110,6 @@ class Mellophone:
         user = json.dumps(user)
         return self.__send_request(url, method="post", data=user)
 
-    @default_sesid
     def is_authenticated(self, ses_id=None):
         """Возвращает информацию об аутентифицированном пользователе, если сессия аутентифицирована
         Keyword Arguments:
@@ -107,15 +117,14 @@ class Mellophone:
         Returns:
             json -- информация о пользователе
         """
-        url = '/isauthenticated?sesid={}'.format(ses_id)
+        url = f'/isauthenticated?sesid={ses_id or self.session_id}'
         try:
             response = self.__send_request(url)
         except ForbiddenError:
             return False
         else:
-            return xmltodict.parse(response)['user']
+            return xml2json(response)
 
-    @default_sesid
     def change_app_ses_id(self, new_ses_id, ses_id=None):
         """Изменяет сессию.
             [не уверена, что корректно работает на стороне меллофона]
@@ -124,11 +133,9 @@ class Mellophone:
         Keyword Arguments:
             old_ses_id {str} -- старая сессия (по умолчанию текущая) (default: {None})
         """
-        url = '/changeappsesid?oldsesid={}&newsesid={}'.format(
-            ses_id, new_ses_id)
+        url = f'/changeappsesid?oldsesid={ses_id or self.session_id}&newsesid={new_ses_id}'
         self.__send_request(url)
 
-    @default_sesid
     def check_name(self, name, ses_id=None):
         """Возвращает информацию о пользователе name
             [любой аутентифицированный пользователь может получить инфу о любом другом пользователе]
@@ -139,9 +146,9 @@ class Mellophone:
         Returns:
             json -- информация о пользователе
         """
-        url = '/checkname?sesid={}&name={}'.format(ses_id, name)
+        url = f'/checkname?sesid={ses_id or self.session_id}&name={name}'
         response = self.__send_request(url)
-        return xmltodict.parse(response)['user']
+        return xml2json(response)
 
     def import_gp(self):
         """
@@ -152,7 +159,6 @@ class Mellophone:
         response = self.__send_request(url)
         return response.split()
 
-    @default_sesid
     def change_pwd(self, old_pwd, new_pwd, ses_id=None):
         """Изменяет пароль пользователя по sesid
             [дополнительная проверка по паролю]
@@ -164,11 +170,9 @@ class Mellophone:
         Returns:
             [type] -- [description]
         """
-        url = '/changepwd?sesid={}&oldpwd={}&newpwd={}'.format(
-            ses_id, old_pwd, new_pwd)
+        url = f'/changepwd?sesid={ses_id or self.session_id}&oldpwd={old_pwd}&newpwd={new_pwd}'
         self.__send_request(url)
 
-    @default_sesid
     def change_user_pwd(self, username, old_pwd, new_pwd, ses_id=None):
         """Изменяет пароль пользователя по username (доступно только админам)
         Arguments:
@@ -180,8 +184,7 @@ class Mellophone:
         Returns:
             [type] -- [description]
         """
-        url = '/changeuserpwd?sesid={}&oldpwd={}&newpwd={}&username={}'.format(
-            ses_id, old_pwd, new_pwd, username)
+        url = f'/changeuserpwd?sesid={ses_id or self.session_id}&oldpwd={old_pwd}&newpwd={new_pwd}&username={username}'
         self.__send_request(url)
 
     def check_credentials(self, login, password, gp=None, ip=None):
@@ -204,7 +207,7 @@ class Mellophone:
             url += '&ip={}'.format(ip)
 
         response = self.__send_request(url)
-        return xmltodict.parse(response)['user']
+        return xml2json(response)
 
     def get_provider_list(self, login, password, gp=None, ip=None):
         """Возвращает информацию о провайдерах с группой gp
@@ -248,7 +251,7 @@ class Mellophone:
 
         response = self.__send_request(url)
 
-        return xmltodict.parse(response)['users']
+        return xml2json(response)
 
     def set_settings(self, token, lockout_time=None, login_attempts_allowed=None):
         """Изменение настроек меллофона
