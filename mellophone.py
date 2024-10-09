@@ -101,6 +101,8 @@ class Mellophone:
         url = f"/user/create?token={self.user_manage_token}"
         if "password" in user:
             user["pwd"] = user.pop("password")
+        for key in user:
+            user[key] = user[key] or ""
         return self.__send_request(url, method="post", data=user)
 
     def update_user(self, sid, token, user):
