@@ -102,7 +102,8 @@ class Mellophone:
         if "password" in user:
             user["pwd"] = user.pop("password")
         for key in user:
-            user[key] = user[key] or ""
+            if user[key] is None:
+                user[key] = ""
         return self.__send_request(url, method="post", data=user)
 
     def update_user(self, sid, token, user):
