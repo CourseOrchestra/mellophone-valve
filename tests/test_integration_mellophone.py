@@ -207,10 +207,7 @@ def test_real_mellophone_async_user_lifecycle(
             gp="not_defined",
         )
         users_async = _users_from_list(users_payload_async)
-        assert any(
-            user.get("sid") == sid and user.get("login") == login
-            for user in users_async
-        )
+        assert any(user.get("sid") == sid and user.get("login") == login for user in users_async)
 
         check_credentials_async = await integration_client.check_credentials_async(
             login,

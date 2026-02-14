@@ -20,9 +20,7 @@ class SyncClientStub:
         return False
 
     def request(self, method, url, content=None, headers=None):
-        self.calls.append(
-            {"method": method, "url": url, "content": content, "headers": headers}
-        )
+        self.calls.append({"method": method, "url": url, "content": content, "headers": headers})
         return self.response
 
 
@@ -38,9 +36,7 @@ class AsyncClientStub:
         return False
 
     async def request(self, method, url, content=None, headers=None):
-        self.calls.append(
-            {"method": method, "url": url, "content": content, "headers": headers}
-        )
+        self.calls.append({"method": method, "url": url, "content": content, "headers": headers})
         return self.response
 
 
@@ -206,7 +202,7 @@ def test_create_user_converts_password_to_pwd_and_sends_xml(mock_sync_client):
 
 def test_create_user_empty_payload_raises():
     client = mellophone.Mellophone("http://example.com")
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         client.create_user({})
 
 
@@ -269,9 +265,7 @@ def test_async_timeout_maps_to_request_timeout(monkeypatch):
         asyncio.run(client.login_async("john", "secret", ses_id="ses-1"))
 
 
-def test_sync_falls_back_to_requests_when_httpx_unavailable(
-    monkeypatch, mock_requests_session
-):
+def test_sync_falls_back_to_requests_when_httpx_unavailable(monkeypatch, mock_requests_session):
     calls = mock_requests_session(_response(200))
     monkeypatch.setattr(mellophone, "httpx", None)
 
@@ -289,4 +283,3 @@ def test_async_raises_without_httpx(monkeypatch):
     client = mellophone.Mellophone("http://example.com")
     with pytest.raises(mellophone.AsyncClientUnavailableError):
         asyncio.run(client.login_async("john", "secret", ses_id="ses-async"))
-
