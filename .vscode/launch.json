@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Pytest: debug integration test",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests/test_integration_mellophone.py",
+        "-s",
+        "-x",
+        "-vv"
+      ],
+      "justMyCode": false
+    }
+  ]
+}

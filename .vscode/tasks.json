@@ -1,0 +1,132 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "docker:stop",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose",
+        "down",
+        "-v"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "docker:start",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose",
+        "up",
+        "-d"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "docker:restart",
+      "dependsOn": [
+        "docker:stop",
+        "docker:start"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "uv:sync",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "sync"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "uv:update",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "lock",
+        "--upgrade"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "pytest:coverage",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "coverage",
+        "--with",
+        "pytest-cov",
+        "pytest",
+        "--cov=.",
+        "--cov-report=term-missing"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "pytest:coverage:html",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "coverage",
+        "--with",
+        "pytest-cov",
+        "pytest",
+        "--cov=.",
+        "--cov-report=term-missing",
+        "--cov-report=html"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "tox:test",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "tox",
+        "tox",
+        "-p",
+        "auto"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "lint:ruff",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "ruff",
+        "check",
+        "."
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "lint:ruff:fix",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "ruff",
+        "check",
+        ".",
+        "--fix"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

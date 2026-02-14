@@ -1,142 +1,106 @@
-Module mellophone
-=================
+﻿# mellophone-valve
 
-Classes
--------
+Python-клиент для Mellophone (`sync` + `async`) с unit- и интеграционными тестами.
 
-`Mellophone(base_url, session_id=None)`
-:   Класс для работы с mellophone
-    Подробное описание сервлетов указано в https://corchestra.ru/wiki/index.php?title=Mellophone
+## Требования
 
-Arguments:
-    base_url {str} -- [Базовый адрес меллофона]
+- Python `>= 3.13`
+- [uv](https://docs.astral.sh/uv/)
+- Docker + Docker Compose (для интеграционных тестов)
 
-Keyword Arguments:
-    session_id {str} -- [Можно передать ид сессии, полученной извне] (default: {None})
+## Установка
 
-### Methods
+```bash
+uv sync --extra httpx
+# или
+uv sync --extra requests
+```
 
-`change_app_ses_id(self, new_ses_id, ses_id=None)`
-:   Изменяет сессию.
-        [не уверена, что корректно работает на стороне меллофона]
+Примечание:
 
-    Arguments:
-        new_ses_id {str} -- новая сессия
+- `async`-методы требуют `httpx` (`mellophone-valve[httpx]`).
+- При установке только `requests` доступны только `sync`-методы.
 
-    Keyword Arguments:
-        old_ses_id {str} -- старая сессия (по умолчанию текущая) (default: {None})
+## Быстрый старт
 
-`change_pwd(self, old_pwd, new_pwd, ses_id=None)`
-:   Изменяет пароль пользователя по sesid
-        [дополнительная проверка по паролю]
+```python
+from mellophone import Mellophone
 
-    Arguments:
-        old_pwd {str} -- Старый пароли
-        new_pwd {str} -- Новый пароль
+client = Mellophone(base_url="http://localhost:8082/mellophone")
+session_id = client.login("user", "password")
+print(client.is_authenticated(session_id))
+client.logout(session_id)
+```
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+## API клиента
 
-    Returns:
-        [type] -- [description]
+Класс `Mellophone` поддерживает пары методов `sync/async`:
 
-`check_credentials(self, login, password, gp=None, ip=None)`
-:   Возвращает информацию о пользователе, если пара логин-пароль верна
+- Авторизация: `login/login_async`, `logout/logout_async`, `is_authenticated/is_authenticated_async`
+- Проверки: `check_credentials/check_credentials_async`, `check_name/check_name_async`
+- Пароли и сессии: `change_pwd/change_pwd_async`, `change_user_pwd/change_user_pwd_async`, `change_app_ses_id/change_app_ses_id_async`
+- Провайдеры и пользователи: `import_gp/import_gp_async`, `get_provider_list/get_provider_list_async`, `get_user_list/get_user_list_async`
+- Настройки и user management: `set_settings/set_settings_async`, `create_user/create_user_async`, `update_user/update_user_async`
 
-    Arguments:
-        login {str} -- Логин
-        password {str} -- Пароль
+Также доступны исключения:
 
-    Keyword Arguments:
-        gp {str} -- Группа провайдеров (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
+- `HttpError`
+- `BadRequestError`
+- `UnauthorizedError`
+- `ForbiddenError`
+- `NotFoundError`
+- `ServerError`
+- `TransportError`
+- `RequestTimeoutError`
+- `ResponseParseError`
+- `AsyncClientUnavailableError`
 
-    Returns:
-        json -- Информация о пользователе
+## Локальный стенд через Docker
 
-`check_name(self, name, ses_id=None)`
-:   Возвращает информацию о пользователе name
-        [любой аутентифицированный пользователь может получить инфу о любом другом пользователе]
+```bash
+docker compose up -d
+```
 
-    Arguments:
-        name {str} -- Имя пользователя
+Сервисы:
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+- Mellophone: `http://localhost:8082/mellophone`
+- PostgreSQL: `localhost:5430`
 
-    Returns:
-        json -- информация о пользователе
+Инициализация БД выполняется автоматически из `docker-config/init-db.sql` через mount в `db:/docker-entrypoint-initdb.d/init-db.sql`.
 
-`get_provider_list(self, login, password, gp=None, ip=None)`
-:   Возвращает информацию о провайдерах с группой gp
+Важно: скрипты из `/docker-entrypoint-initdb.d` выполняются только при первичной инициализации Postgres volume.
 
-    Arguments:
-        login {str} -- Пользователь, под которым можно получить группу провайдеров
-        password {str} -- Пароль пользователя, под которым можно получить группу провайдеров
+## Тесты
 
-    Keyword Arguments:
-        gp {str} -- Группа провайдеров (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
+Все тесты:
 
-    Returns:
-        list -- Список провайдеров
+```bash
+uv run pytest -q
+```
 
-`get_user_list(self, token, gp, ip=None, pid=None)`
-:   Возвращает информацию о пользователях провайдера
+Только unit-тесты:
 
-    Arguments:
-        token {str} -- Токен безопасности
-        gp {str} -- Группа провайдеров
+```bash
+uv run pytest tests/test_mellophone.py -q
+```
 
-    Keyword Arguments:
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
-        pid {str} -- идентификатор провайдера (default: {None})
+Интеграционные:
 
-    Returns:
-        list -- Список пользователей провайдера
+```bash
+uv run pytest tests/test_integration_smoke.py -q
+uv run pytest tests/test_integration_mellophone.py -q
+```
 
-`import_gp(self)`
-:   Returns:
-        list -- список групп провайдеров
+## Coverage
 
-`is_authenticated(self, ses_id=None)`
-:   Возвращает информацию об аутентифицированном пользователе, если сессия аутентифицирована
+```bash
+uv run --with coverage --with pytest-cov pytest --cov=. --cov-report=term-missing -q
+```
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+## VS Code Tasks
 
-    Returns:
-        json -- информация о пользователе
+В `.vscode/tasks.json` добавлены задачи:
 
-`login(self, login, password, ses_id=None, gp=None, ip=None)`
-:   Аутентифицирует сессию;
-        Если пара "логин-пароль" аутентифицирует сессию приложения ses_id;
-        Если пара "логин-пароль" неверна, выкидывает Forbidden
-
-    Arguments:
-        login {str} -- Логин пользователя
-        password {str} -- Пароль пользователя
-
-    Keyword Arguments:
-        ses_id {str} -- Идентификатор сессии (default: {None})
-        gp {str} -- Группа провайдеров (когда меллофон подключен к нескольким источникам данных) (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
-
-`logout(self, ses_id=None)`
-:   Разаутентифицирует указанную сессию приложения или текущую
-
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
-
-`set_settings(self, token, lockout_time=None, login_attempts_allowed=None)`
-:   Изменение настроек меллофона
-
-    Arguments:
-        token {str} -- Токен безопасности
-
-    Keyword Arguments:
-        lockouttime {int} -- время в минутах, на которое будет блокироваться пользователь (default: {None})
-        loginattemptsallowed {str} -- разрешенное количество неудачных попыток ввода пароля (default: {None})
-
-    Returns:
-        [type] -- [description]
+- `uv sync`
+- `uv update` (`uv lock --upgrade`)
+- `pytest coverage`

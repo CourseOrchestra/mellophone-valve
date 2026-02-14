@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.curs.ru/authserver config.xsd" xmlns="http://www.curs.ru/authserver">
+  <!-- Общие настройки -->
+  <common>
+    <threadcount>4</threadcount>
+    <authsessions initialCapacity="16" loadFactor="75" concurrencyLevel="16"/>
+    <appsessions initialCapacity="16" loadFactor="75" concurrencyLevel="16"/>
+
+    <lockouttime>0</lockouttime>
+    <loginattemptsallowed>50</loginattemptsallowed>
+
+    <showtimetounlockuser>true</showtimetounlockuser>
+    <checkpasswordhashonly>false</checkpasswordhashonly>
+
+    <setsettingstoken>setsettingstoken</setsettingstoken>
+    <getuserlisttoken>getuserlisttoken</getuserlisttoken>
+  </common>
+
+  <sqlserverext>
+    <logging>true</logging>
+    <url>jdbc:postgresql://db:5432/postgres</url>
+    <connectionusername>postgres</connectionusername>
+    <connectionpassword>postgres</connectionpassword>
+    <localsecuritysalt>salt</localsecuritysalt>
+    <table>users</table>
+    <tableattr>user_attr</tableattr>
+  </sqlserverext>
+</config>
