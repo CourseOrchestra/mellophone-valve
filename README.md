@@ -1,7 +1,6 @@
 ﻿# mellophone-valve
 
-[![Lint](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/lint.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/lint.yml)
-[![Tests](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/tests.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/tests.yml)
+[![CI Push](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/ci-push.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/ci-push.yml)
 [![CodeQL](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml)
 [![Python](https://img.shields.io/badge/python-tested%203.7%E2%80%933.14%20%7C%20runtime%20%3E%3D3.13-blue)](tox.ini)
 
@@ -145,10 +144,33 @@ tox -p auto
 uv run --with coverage --with pytest-cov pytest --cov=. --cov-report=term-missing -q
 ```
 
+## Релизы
+
+Релиз создается автоматически при `push` в `master` workflow'ом `CI Push`.
+
+Условия для релиза:
+
+- `Tests` завершился успешно.
+- `Version Check` завершился успешно (версия в `pyproject.toml` увеличена по правилам `vuh`).
+
+Как формируется релиз:
+
+- версия берется из `vuh lv -q`;
+- создается тег формата `v<version>` и GitHub Release;
+- если тег уже существует, релиз пропускается.
+
 ## VS Code Tasks
 
 В `.vscode/tasks.json` добавлены задачи:
 
-- `uv sync`
-- `uv update` (`uv lock --upgrade`)
-- `pytest coverage`
+- `docker:stop` - остановить `docker compose` и удалить volume (`docker compose down -v`).
+- `docker:start` - поднять локальный стенд в фоне (`docker compose up -d`).
+- `docker:restart` - последовательно выполнить `docker:stop` и `docker:start`.
+- `uv:sync` - синхронизировать окружение и зависимости (`uv sync`).
+- `uv:update` - обновить lock-файл зависимостей (`uv lock --upgrade`).
+- `pytest:coverage` - запустить тесты с coverage в терминал.
+- `pytest:coverage:html` - запустить тесты с coverage в терминал и HTML-отчет (`htmlcov/`).
+- `tox:test` - запустить матрицу `tox` (`tox -p auto`).
+- `lint:ruff` - проверить код через `ruff check .`.
+- `lint:ruff:fix` - исправить автоисправляемые проблемы `ruff`.
+- `lint:pre-commit` - прогнать `pre-commit` по всем файлам.

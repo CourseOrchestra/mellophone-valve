@@ -1,24 +1,21 @@
-﻿name: "🧹 Lint"
+name: "Lint"
 
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_call:
 
 jobs:
   pre-commit:
-    name: "🧪 Pre-commit"
+    name: "Pre-commit"
     runs-on: ubuntu-latest
 
     steps:
-      - name: "📥 Checkout"
+      - name: "Checkout"
         uses: actions/checkout@v4
 
-      - name: "🐍 Set up Python"
+      - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: "✅ Run pre-commit"
+      - name: "Run pre-commit"
         uses: pre-commit/action@v3.0.1

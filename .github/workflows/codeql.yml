@@ -1,4 +1,4 @@
-﻿name: "🔒 CodeQL"
+name: "CodeQL"
 
 on:
   push:
@@ -15,17 +15,17 @@ permissions:
 
 jobs:
   analyze:
-    name: "🔎 Analyze (Python)"
+    name: "Analyze (Python)"
     runs-on: ubuntu-latest
 
     steps:
-      - name: "📥 Checkout"
+      - name: "Checkout"
         uses: actions/checkout@v4
 
-      - name: "⚙️ Initialize CodeQL"
+      - name: "Initialize CodeQL"
         uses: github/codeql-action/init@v4
         with:
           languages: python
 
-      - name: "🛡️ Perform CodeQL Analysis"
+      - name: "Perform CodeQL Analysis"
         uses: github/codeql-action/analyze@v4

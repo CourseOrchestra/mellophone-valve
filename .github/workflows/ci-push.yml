@@ -1,0 +1,74 @@
+name: "CI Push"
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    name: "Lint"
+    uses: ./.github/workflows/lint.yml
+
+  tests:
+    name: "Tests"
+    uses: ./.github/workflows/tests.yml
+
+  version-check:
+    name: "Version Check"
+    uses: ./.github/workflows/version-check.yml
+
+  release:
+    name: "Release"
+    needs: [tests, version-check]
+    runs-on: ubuntu-latest
+    env:
+      VUH_VERSION: "v2.13.0"
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Download version-update-helper"
+        shell: bash
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/Greewil/version-update-helper/${VUH_VERSION}/vuh.sh" -o vuh.sh
+          chmod +x vuh.sh
+
+      - name: "Set release tag from vuh version"
+        id: version
+        shell: bash
+        run: |
+          version="$(./vuh.sh lv -q)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: "Check if tag already exists"
+        id: tag
+        shell: bash
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Release decision"
+        run: |
+          if [ "${{ steps.tag.outputs.exists }}" = "true" ]; then
+            echo "Decision: skip (tag already exists: ${{ steps.version.outputs.tag }})"
+          else
+            echo "Decision: create release ${{ steps.version.outputs.tag }}"
+          fi
+
+      - name: "Create GitHub release"
+        if: steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true

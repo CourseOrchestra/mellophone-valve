@@ -1,36 +1,33 @@
-﻿name: "🔢 Version Check"
+name: "Version Check"
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_call:
 
 jobs:
   version-check:
-    name: "🔢 Check version bump in pyproject.toml"
+    name: "Check version bump in pyproject.toml"
     runs-on: ubuntu-latest
     env:
       VUH_VERSION: "v2.13.0"
 
     steps:
-      - name: "📥 Checkout"
+      - name: "Checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "⬇️ Download version-update-helper"
+      - name: "Download version-update-helper"
         shell: bash
         run: |
           curl -fsSL "https://raw.githubusercontent.com/Greewil/version-update-helper/${VUH_VERSION}/vuh.sh" -o vuh.sh
           chmod +x vuh.sh
 
-      - name: "📥 Prepare baseline branch"
+      - name: "Prepare baseline branch"
         shell: bash
         run: |
           git fetch --no-tags --prune --depth=1 origin master
 
-      - name: "🔍 Check baseline files exist in origin/master"
+      - name: "Check baseline files exist in origin/master"
         id: baseline
         shell: bash
         run: |
@@ -41,7 +38,7 @@ jobs:
             echo "::warning title=Version check skipped::Baseline files not found in origin/master (.vuh or pyproject.toml). Please verify version bump in pyproject.toml manually."
           fi
 
-      - name: "📈 Validate version is increased"
+      - name: "Validate version is increased"
         if: steps.baseline.outputs.ready == 'true'
         shell: bash
         run: |
