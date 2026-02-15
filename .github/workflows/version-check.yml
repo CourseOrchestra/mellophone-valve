@@ -1,4 +1,4 @@
-﻿name: "⬆️ Version Check"
+﻿name: "🔢 Version Check"
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   version-check:
-    name: "⬆️ Check version bump in pyproject.toml"
+    name: "🔢 Check version bump in pyproject.toml"
     runs-on: ubuntu-latest
     env:
       VUH_VERSION: "v2.13.0"
@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "🆚 Download version-update-helper"
+      - name: "⬇️ Download version-update-helper"
         shell: bash
         run: |
           curl -fsSL "https://raw.githubusercontent.com/Greewil/version-update-helper/${VUH_VERSION}/vuh.sh" -o vuh.sh
