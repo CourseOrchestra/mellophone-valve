@@ -2,6 +2,7 @@
 
 [![Lint](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/lint.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/lint.yml)
 [![Tests](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/tests.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/tests.yml)
+[![CodeQL](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml)
 [![Python](https://img.shields.io/badge/python-tested%203.7%E2%80%933.14%20%7C%20runtime%20%3E%3D3.13-blue)](tox.ini)
 
 Python-клиент для Mellophone (`sync` + `async`) с unit- и интеграционными тестами.
