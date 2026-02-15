@@ -142,6 +142,30 @@ def test_xml_to_json_with_repeated_tags():
     assert result == {"users": {"user": [{"login": "a"}, {"login": "b"}]}}
 
 
+def test_client_options_are_stored():
+    client = mellophone.Mellophone(
+        "http://example.com",
+        set_settings_token="set-token",
+        user_manage_token="user-token",
+        session_id="ses-1",
+        timeout=7.5,
+    )
+
+    assert client.base_url == "http://example.com"
+    assert client.set_settings_token == "set-token"
+    assert client.user_manage_token == "user-token"
+    assert client.session_id == "ses-1"
+    assert client.timeout == 7.5
+
+
+def test_build_url_skips_none_params():
+    client = mellophone.Mellophone("http://example.com")
+
+    url = client._build_url("path", {"a": 1, "b": None, "c": "x"})
+
+    assert url == "http://example.com/path?a=1&c=x"
+
+
 def test_login_sync_sets_session_and_sends_request(mock_sync_client):
     calls = mock_sync_client(_response(200))
 
@@ -200,6 +224,12 @@ def test_create_user_converts_password_to_pwd_and_sends_xml(mock_sync_client):
     assert xml.tag == "user"
     assert xml.attrib["pwd"] == "1234"
     assert "password" not in xml.attrib
+
+
+def test_create_user_empty_payload_raises():
+    client = mellophone.Mellophone("http://example.com")
+    with pytest.raises(ValueError):
+        client.create_user({})
 
 
 def test_set_settings_uses_client_token(mock_sync_client):
@@ -409,3 +439,23 @@ def test_async_raises_without_httpx(monkeypatch):
     client = mellophone.Mellophone("http://example.com")
     with pytest.raises(mellophone.AsyncClientUnavailableError):
         asyncio.run(client.login_async("john", "secret", ses_id="ses-async"))
+
+
+def test_set_settings_raises_when_set_settings_token_missing():
+    client = mellophone.Mellophone("http://example.com")
+    with pytest.raises(mellophone.MissingTokenError) as exc:
+        client.set_settings(lockout_time=5)
+    assert "set_settings_token" in str(exc.value)
+
+
+def test_user_manage_methods_raise_when_user_manage_token_missing():
+    client = mellophone.Mellophone("http://example.com")
+
+    with pytest.raises(mellophone.MissingTokenError):
+        client.get_user_list(gp="group-1")
+    with pytest.raises(mellophone.MissingTokenError):
+        client.create_user({"sid": "1", "login": "neo", "password": "1234"})
+    with pytest.raises(mellophone.MissingTokenError):
+        client.update_user("1", {"sid": "1", "login": "neo", "pwd": "1234"})
+    with pytest.raises(mellophone.MissingTokenError):
+        client.delete_user("1")

@@ -1,0 +1,4 @@
+MAIN_BRANCH_NAME='master'
+VERSION_FILE='pyproject.toml'
+TEXT_BEFORE_VERSION_CODE='version = "'
+TEXT_AFTER_VERSION_CODE='"'
