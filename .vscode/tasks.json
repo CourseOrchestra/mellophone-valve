@@ -127,6 +127,19 @@
       ],
       "group": "test",
       "problemMatcher": []
+    },
+    {
+      "label": "lint:pre-commit",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "pre-commit",
+        "run",
+        "--all-files"
+      ],
+      "group": "test",
+      "problemMatcher": []
     }
   ]
 }

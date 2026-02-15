@@ -167,7 +167,7 @@ wheels = [
 [[package]]
 name = "mellophone-valve"
 version = "3.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.optional-dependencies]
 httpx = [

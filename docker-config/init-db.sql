@@ -16,6 +16,3 @@ CREATE TABLE user_attr
     FOREIGN KEY (sid) REFERENCES users (sid) ON UPDATE CASCADE ON DELETE CASCADE
         DEFERRABLE
 );
-
-
-INSERT INTO users (sid, login, pwd) VALUES ('docker', 'docker', 'docker')

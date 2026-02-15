@@ -12,6 +12,7 @@ from .exceptions import (
     BadRequestError,
     ForbiddenError,
     HttpError,
+    MissingTokenError,
     NotFoundError,
     RequestTimeoutError,
     ResponseParseError,
@@ -99,11 +100,11 @@ class Mellophone:
                 raise TransportError("HTTP transport error in httpx client.") from exc
         else:
             try:
-                with requests.Session() as session:  # type: ignore[union-attr]
+                with requests.Session() as session:
                     response = session.request(method, url, data=data, headers=headers, timeout=self.timeout)
-            except requests.Timeout as exc:  # type: ignore[union-attr]
+            except requests.Timeout as exc:
                 raise RequestTimeoutError("HTTP request timeout exceeded.") from exc
-            except requests.RequestException as exc:  # type: ignore[union-attr]
+            except requests.RequestException as exc:
                 raise TransportError("HTTP transport error in requests client.") from exc
 
         self._raise_for_status(response)
@@ -150,6 +151,12 @@ class Mellophone:
         if "password" in payload:
             payload["pwd"] = payload.pop("password")
         return payload
+
+    @staticmethod
+    def _require_token(token: Optional[str], *, field_name: str) -> str:
+        if token:
+            return token
+        raise MissingTokenError(f"{field_name} is required on Mellophone client.")
 
     @staticmethod
     def _login_props(
@@ -288,7 +295,6 @@ class Mellophone:
     @staticmethod
     def _change_user_pwd_props(
         username: str,
-        old_pwd: str,
         new_pwd: str,
         ses_id: Optional[str],
     ) -> RequestParams:
@@ -296,21 +302,16 @@ class Mellophone:
             path="changeuserpwd",
             params={
                 "sesid": ses_id,
-                "oldpwd": old_pwd,
                 "newpwd": new_pwd,
                 "username": username,
             },
         )
 
-    def change_user_pwd(self, username: str, old_pwd: str, new_pwd: str, ses_id: Optional[str] = None) -> None:
-        self._request_text(**self._change_user_pwd_props(username, old_pwd, new_pwd, ses_id or self.session_id))
+    def change_user_pwd(self, username: str, new_pwd: str, ses_id: Optional[str] = None) -> None:
+        self._request_text(**self._change_user_pwd_props(username, new_pwd, ses_id or self.session_id))
 
-    async def change_user_pwd_async(
-        self, username: str, old_pwd: str, new_pwd: str, ses_id: Optional[str] = None
-    ) -> None:
-        await self._request_text_async(
-            **self._change_user_pwd_props(username, old_pwd, new_pwd, ses_id or self.session_id)
-        )
+    async def change_user_pwd_async(self, username: str, new_pwd: str, ses_id: Optional[str] = None) -> None:
+        await self._request_text_async(**self._change_user_pwd_props(username, new_pwd, ses_id or self.session_id))
 
     @staticmethod
     def _change_app_ses_id_props(new_ses_id: str, ses_id: Optional[str]) -> RequestParams:
@@ -321,11 +322,13 @@ class Mellophone:
 
     def change_app_ses_id(self, new_ses_id: str, ses_id: Optional[str] = None) -> None:
         self._request_text(**self._change_app_ses_id_props(new_ses_id, ses_id or self.session_id))
-        self.session_id = new_ses_id
+        if ses_id is None:
+            self.session_id = new_ses_id
 
     async def change_app_ses_id_async(self, new_ses_id: str, ses_id: Optional[str] = None) -> None:
         await self._request_text_async(**self._change_app_ses_id_props(new_ses_id, ses_id or self.session_id))
-        self.session_id = new_ses_id
+        if ses_id is None:
+            self.session_id = new_ses_id
 
     @staticmethod
     def _import_gp_props() -> RequestParams:
@@ -371,37 +374,32 @@ class Mellophone:
         return self._as_json(response).get("providers", {})
 
     @staticmethod
-    def _get_user_list_props(
-        token: str,
-        gp: str,
-        ip: Optional[str] = None,
-        pid: Optional[str] = None,
-    ) -> RequestParams:
+    def _get_user_list_props(token: str, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> RequestParams:
         return RequestParams(
             path="getuserlist",
             params={"token": token, "gp": gp, "ip": ip, "pid": pid},
         )
 
-    def get_user_list(self, token: str, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> Dict[str, Any]:
+    def get_user_list(self, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> Dict[str, Any]:
+        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
         response = self._request_text(**self._get_user_list_props(token, gp, ip, pid))
         return self._as_json(response)
 
-    async def get_user_list_async(
-        self, token: str, gp: str, ip: Optional[str] = None, pid: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def get_user_list_async(self, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> Dict[str, Any]:
+        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
         response = await self._request_text_async(**self._get_user_list_props(token, gp, ip, pid))
         return self._as_json(response)
 
     def _set_settings_props(
         self,
-        token: Optional[str] = None,
         lockout_time: Optional[int] = None,
         login_attempts_allowed: Optional[int] = None,
     ) -> RequestParams:
+        token = self._require_token(self.set_settings_token, field_name="set_settings_token")
         return RequestParams(
             path="setsettings",
             params={
-                "token": token or self.set_settings_token,
+                "token": token,
                 "lockouttime": lockout_time,
                 "loginattemptsallowed": login_attempts_allowed,
             },
@@ -409,39 +407,38 @@ class Mellophone:
 
     def set_settings(
         self,
-        token: Optional[str] = None,
         lockout_time: Optional[int] = None,
         login_attempts_allowed: Optional[int] = None,
     ) -> None:
-        self._request_text(**self._set_settings_props(token, lockout_time, login_attempts_allowed))
+        self._request_text(**self._set_settings_props(lockout_time, login_attempts_allowed))
 
     async def set_settings_async(
         self,
-        token: Optional[str] = None,
         lockout_time: Optional[int] = None,
         login_attempts_allowed: Optional[int] = None,
     ) -> None:
-        await self._request_text_async(**self._set_settings_props(token, lockout_time, login_attempts_allowed))
+        await self._request_text_async(**self._set_settings_props(lockout_time, login_attempts_allowed))
 
-    def _create_user_props(self, payload: Dict[str, Any], token: Optional[str] = None) -> RequestArgs:
+    def _create_user_props(self, payload: Dict[str, Any]) -> RequestArgs:
+        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
         return RequestArgs(
             path="user/create",
             method="POST",
-            params={"token": token or self.user_manage_token},
+            params={"token": token},
             data=user_to_xml(payload),
             headers={"Content-Type": "application/xml"},
         )
 
-    def create_user(self, user: Dict[str, Any], token: Optional[str] = None) -> None:
+    def create_user(self, user: Dict[str, Any]) -> None:
         payload = self._require_user(user)
-        self._request_text(**self._create_user_props(payload, token))
+        self._request_text(**self._create_user_props(payload))
 
-    async def create_user_async(self, user: Dict[str, Any], token: Optional[str] = None) -> None:
+    async def create_user_async(self, user: Dict[str, Any]) -> None:
         payload = self._require_user(user)
-        await self._request_text_async(**self._create_user_props(payload, token))
+        await self._request_text_async(**self._create_user_props(payload))
 
-    @staticmethod
-    def _update_user_props(sid: str, token: str, user: Dict[str, Any]) -> RequestArgs:
+    def _update_user_props(self, sid: str, user: Dict[str, Any]) -> RequestArgs:
+        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
         return RequestArgs(
             path=f"/user/{sid}",
             method="POST",
@@ -450,11 +447,41 @@ class Mellophone:
             headers={"Content-Type": "application/xml"},
         )
 
-    def update_user(self, sid: str, token: str, user: Dict[str, Any]) -> None:
-        self._request_text(**self._update_user_props(sid, token, user))
+    def update_user(self, sid: str, user: Dict[str, Any]) -> None:
+        self._request_text(**self._update_user_props(sid, user))
 
-    async def update_user_async(self, sid: str, token: str, user: Dict[str, Any]) -> None:
-        await self._request_text_async(**self._update_user_props(sid, token, user))
+    async def update_user_async(self, sid: str, user: Dict[str, Any]) -> None:
+        await self._request_text_async(**self._update_user_props(sid, user))
+
+    def _delete_user_props(self, sid: str) -> RequestArgs:
+        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        return RequestArgs(path=f"/user/{sid}", method="DELETE", params={"token": token})
+
+    def delete_user(self, sid: str) -> None:
+        self._request_text(**self._delete_user_props(sid))
+
+    async def delete_user_async(self, sid: str) -> None:
+        await self._request_text_async(**self._delete_user_props(sid))
+
+    @staticmethod
+    def _set_state_props(ses_id: str, state: str) -> RequestArgs:
+        return RequestArgs(path="setstate", method="POST", params={"sesid": ses_id}, data=state)
+
+    def set_state(self, ses_id: str, state: str) -> None:
+        self._request_text(**self._set_state_props(ses_id, state))
+
+    async def set_state_async(self, ses_id: str, state: str) -> None:
+        await self._request_text_async(**self._set_state_props(ses_id, state))
+
+    @staticmethod
+    def _get_state_props(ses_id: str) -> RequestParams:
+        return RequestParams(path="getstate", params={"sesid": ses_id})
+
+    def get_state(self, ses_id: str) -> str:
+        return self._request_text(**self._get_state_props(ses_id))
+
+    async def get_state_async(self, ses_id: str) -> str:
+        return await self._request_text_async(**self._get_state_props(ses_id))
 
 
 __all__ = [
@@ -465,6 +492,7 @@ __all__ = [
     "httpx",
     "requests",
     "HttpError",
+    "MissingTokenError",
     "BadRequestError",
     "UnauthorizedError",
     "ForbiddenError",

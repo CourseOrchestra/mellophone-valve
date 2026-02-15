@@ -46,6 +46,10 @@ class ResponseParseError(ValueError):
     """Raised when API XML response cannot be parsed."""
 
 
+class MissingTokenError(ValueError):
+    """Raised when required token is not configured on client instance."""
+
+
 __all__ = [
     "HttpError",
     "BadRequestError",
@@ -57,4 +61,5 @@ __all__ = [
     "TransportError",
     "RequestTimeoutError",
     "ResponseParseError",
+    "MissingTokenError",
 ]

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import socket
+import threading
+import time
 import xml.etree.ElementTree as ET
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from uuid import uuid4
@@ -10,7 +14,15 @@ import httpx
 import pytest
 import yaml
 
-from mellophone import ForbiddenError, Mellophone
+from mellophone import (
+    ForbiddenError,
+    HttpError,
+    Mellophone,
+    NotFoundError,
+    RequestTimeoutError,
+    TransportError,
+    UnauthorizedError,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKER_COMPOSE_PATH = ROOT / "docker-compose.yml"
@@ -113,17 +125,64 @@ def _assert_credentials_invalid(client: Mellophone, login: str, password: str) -
         client.check_credentials(login, password)
 
 
-def test_real_mellophone_sync_user_lifecycle(
+def _free_tcp_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+@pytest.fixture
+def local_error_server() -> str:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path.startswith("/unauthorized"):
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b"unauthorized")
+                return
+            if self.path.startswith("/not-found"):
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"not found")
+                return
+            if self.path.startswith("/teapot"):
+                self.send_response(418)
+                self.end_headers()
+                self.wfile.write(b"teapot")
+                return
+            if self.path.startswith("/slow"):
+                time.sleep(0.2)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"slow-ok")
+                return
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        thread.join(timeout=1)
+
+
+def test_it_sync_user_lifecycle(
     integration_client: Mellophone,
-    integration_tokens: Tuple[str, str],
     integration_user: Dict[str, str],
 ) -> None:
-    _, user_token = integration_tokens
     sid = integration_user["sid"]
     login = integration_user["login"]
     password = integration_user["password"]
 
-    users_payload = integration_client.get_user_list(token=user_token, gp="not_defined")
+    users_payload = integration_client.get_user_list(gp="not_defined")
     users = _users_from_list(users_payload)
     assert any(user.get("sid") == sid and user.get("login") == login for user in users)
 
@@ -137,7 +196,7 @@ def test_real_mellophone_sync_user_lifecycle(
 
     session_id = integration_client.login(login, password)
     auth = integration_client.is_authenticated(session_id)
-    assert auth is not False
+    assert isinstance(auth, dict)
     assert auth.get("sid") == sid
 
     check_name_exists = integration_client.check_name(login, session_id)
@@ -150,12 +209,10 @@ def test_real_mellophone_sync_user_lifecycle(
     assert integration_client.is_authenticated(session_id) is False
 
 
-def test_real_mellophone_sync_password_changes(
+def test_it_sync_password_changes(
     integration_client: Mellophone,
-    integration_tokens: Tuple[str, str],
     integration_user: Dict[str, str],
 ) -> None:
-    _, user_token = integration_tokens
     sid = integration_user["sid"]
     login = integration_user["login"]
     pwd_1 = integration_user["password"]
@@ -169,11 +226,11 @@ def test_real_mellophone_sync_password_changes(
     _assert_credentials_invalid(integration_client, login, pwd_1)
     _assert_credentials_valid(integration_client, login, pwd_2, sid)
 
-    integration_client.change_user_pwd(login, pwd_2, pwd_3, session_id)
+    integration_client.change_user_pwd(login, pwd_3, session_id)
     _assert_credentials_invalid(integration_client, login, pwd_2)
     _assert_credentials_valid(integration_client, login, pwd_3, sid)
 
-    integration_client.update_user(sid, user_token, {"sid": sid, "login": login, "pwd": pwd_4})
+    integration_client.update_user(sid, {"sid": sid, "login": login, "pwd": pwd_4})
     _assert_credentials_invalid(integration_client, login, pwd_3)
     _assert_credentials_valid(integration_client, login, pwd_4, sid)
 
@@ -181,12 +238,44 @@ def test_real_mellophone_sync_password_changes(
     assert integration_client.is_authenticated(session_id) is False
 
 
-def test_real_mellophone_async_user_lifecycle(
+def test_it_sync_state_session_settings_and_delete(
     integration_client: Mellophone,
-    integration_tokens: Tuple[str, str],
+) -> None:
+    unique = uuid4().hex[:8]
+    sid = f"it-real-sync-{unique}"
+    login = f"it_real_sync_{unique}"
+    pwd_1 = "pwd_1"
+    pwd_2 = "pwd_2"
+
+    integration_client.create_user({"sid": sid, "login": login, "password": pwd_1})
+    _assert_credentials_valid(integration_client, login, pwd_1, sid)
+
+    session_id = integration_client.login(login, pwd_1)
+    state_value = f"state_sync_{unique}"
+    integration_client.set_state(session_id, state_value)
+    assert integration_client.get_state(session_id) == state_value
+
+    integration_client.set_settings(lockout_time=30, login_attempts_allowed=5)
+
+    new_session_id = f"{session_id}-moved"
+    integration_client.change_app_ses_id(new_session_id, session_id)
+    auth_after_change = integration_client.is_authenticated(new_session_id)
+    assert isinstance(auth_after_change, dict)
+    assert auth_after_change.get("sid") == sid
+    assert integration_client.is_authenticated(session_id) is False
+
+    integration_client.change_user_pwd(login, pwd_2, new_session_id)
+    _assert_credentials_invalid(integration_client, login, pwd_1)
+    _assert_credentials_valid(integration_client, login, pwd_2, sid)
+
+    integration_client.delete_user(sid)
+    _assert_credentials_invalid(integration_client, login, pwd_2)
+
+
+def test_it_async_user_lifecycle(
+    integration_client: Mellophone,
     integration_user: Dict[str, str],
 ) -> None:
-    _, user_token = integration_tokens
     sid = integration_user["sid"]
     login = integration_user["login"]
     password = integration_user["password"]
@@ -202,10 +291,7 @@ def test_real_mellophone_async_user_lifecycle(
         )
         assert provider_list_async
 
-        users_payload_async = await integration_client.get_user_list_async(
-            token=user_token,
-            gp="not_defined",
-        )
+        users_payload_async = await integration_client.get_user_list_async(gp="not_defined")
         users_async = _users_from_list(users_payload_async)
         assert any(user.get("sid") == sid and user.get("login") == login for user in users_async)
 
@@ -217,7 +303,7 @@ def test_real_mellophone_async_user_lifecycle(
 
         session_async = await integration_client.login_async(login, password)
         auth_async = await integration_client.is_authenticated_async(session_async)
-        assert auth_async is not False
+        assert isinstance(auth_async, dict)
         assert auth_async.get("sid") == sid
 
         check_name_async = await integration_client.check_name_async(login, session_async)
@@ -229,12 +315,10 @@ def test_real_mellophone_async_user_lifecycle(
     asyncio.run(_run())
 
 
-def test_real_mellophone_async_password_changes(
+def test_it_async_password_changes(
     integration_client: Mellophone,
-    integration_tokens: Tuple[str, str],
     integration_user: Dict[str, str],
 ) -> None:
-    _, user_token = integration_tokens
     sid = integration_user["sid"]
     login = integration_user["login"]
     pwd_4 = integration_user["password"]
@@ -250,11 +334,7 @@ def test_real_mellophone_async_password_changes(
         valid_after_change = await integration_client.check_credentials_async(login, pwd_5)
         assert valid_after_change.get("sid") == sid
 
-        await integration_client.update_user_async(
-            sid,
-            user_token,
-            {"sid": sid, "login": login, "pwd": pwd_4},
-        )
+        await integration_client.update_user_async(sid, {"sid": sid, "login": login, "pwd": pwd_4})
         with pytest.raises(ForbiddenError):
             await integration_client.check_credentials_async(login, pwd_5)
 
@@ -265,3 +345,79 @@ def test_real_mellophone_async_password_changes(
         assert await integration_client.is_authenticated_async(session_async) is False
 
     asyncio.run(_run())
+
+
+def test_it_async_state_session_settings_and_delete(
+    integration_client: Mellophone,
+) -> None:
+    unique = uuid4().hex[:8]
+    sid = f"it-real-async-{unique}"
+    login = f"it_real_async_{unique}"
+    pwd_1 = "pwd_1"
+    pwd_2 = "pwd_2"
+
+    async def _run() -> None:
+        await integration_client.create_user_async({"sid": sid, "login": login, "password": pwd_1})
+
+        valid_before = await integration_client.check_credentials_async(login, pwd_1)
+        assert valid_before.get("sid") == sid
+
+        session_id = await integration_client.login_async(login, pwd_1)
+        state_value = f"state_async_{unique}"
+        await integration_client.set_state_async(session_id, state_value)
+        assert await integration_client.get_state_async(session_id) == state_value
+
+        await integration_client.set_settings_async(lockout_time=30, login_attempts_allowed=5)
+
+        new_session_id = f"{session_id}-moved"
+        await integration_client.change_app_ses_id_async(new_session_id, session_id)
+        auth_after_change = await integration_client.is_authenticated_async(new_session_id)
+        assert isinstance(auth_after_change, dict)
+        assert auth_after_change.get("sid") == sid
+        assert await integration_client.is_authenticated_async(session_id) is False
+
+        await integration_client.change_user_pwd_async(login, pwd_2, new_session_id)
+        with pytest.raises(ForbiddenError):
+            await integration_client.check_credentials_async(login, pwd_1)
+
+        valid_after_change = await integration_client.check_credentials_async(login, pwd_2)
+        assert valid_after_change.get("sid") == sid
+
+        await integration_client.delete_user_async(sid)
+        with pytest.raises(ForbiddenError):
+            await integration_client.check_credentials_async(login, pwd_2)
+
+    asyncio.run(_run())
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_exc", "expected_status"),
+    [
+        ("unauthorized", UnauthorizedError, 401),
+        ("not-found", NotFoundError, 404),
+        ("teapot", HttpError, 418),
+    ],
+)
+def test_it_maps_http_errors(
+    local_error_server: str,
+    path: str,
+    expected_exc: type[Exception],
+    expected_status: int,
+) -> None:
+    client = Mellophone(local_error_server)
+    with pytest.raises(expected_exc) as exc:
+        client._request_text(path)
+    assert getattr(exc.value, "status_code", None) == expected_status
+
+
+def test_it_maps_request_timeout_error(local_error_server: str) -> None:
+    client = Mellophone(local_error_server, timeout=0.01)
+    with pytest.raises(RequestTimeoutError):
+        client._request_text("slow")
+
+
+def test_it_maps_transport_error() -> None:
+    port = _free_tcp_port()
+    client = Mellophone(f"http://127.0.0.1:{port}")
+    with pytest.raises(TransportError):
+        client._request_text("down")

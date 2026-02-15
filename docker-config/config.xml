@@ -7,8 +7,8 @@
     <authsessions initialCapacity="16" loadFactor="75" concurrencyLevel="16"/>
     <appsessions initialCapacity="16" loadFactor="75" concurrencyLevel="16"/>
 
-    <lockouttime>0</lockouttime>
-    <loginattemptsallowed>50</loginattemptsallowed>
+    <lockouttime>30</lockouttime>
+    <loginattemptsallowed>5</loginattemptsallowed>
 
     <showtimetounlockuser>true</showtimetounlockuser>
     <checkpasswordhashonly>false</checkpasswordhashonly>
