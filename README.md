@@ -1,142 +1,176 @@
-Module mellophone
-=================
+﻿# mellophone-valve
 
-Classes
--------
+[![CI Push](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/ci-push.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/ci-push.yml)
+[![CodeQL](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml/badge.svg)](https://github.com/CourseOrchestra/mellophone-valve/actions/workflows/codeql.yml)
+[![Python](https://img.shields.io/badge/python-tested%203.7%E2%80%933.14%20%7C%20runtime%20%3E%3D3.13-blue)](tox.ini)
 
-`Mellophone(base_url, session_id=None)`
-:   Класс для работы с mellophone
-    Подробное описание сервлетов указано в https://corchestra.ru/wiki/index.php?title=Mellophone
+Python-клиент для Mellophone (`sync` + `async`) с unit- и интеграционными тестами.
 
-Arguments:
-    base_url {str} -- [Базовый адрес меллофона]
+## Требования
 
-Keyword Arguments:
-    session_id {str} -- [Можно передать ид сессии, полученной извне] (default: {None})
+- Runtime для пакета: Python `>= 3.13` (см. `pyproject.toml`)
+- [uv](https://docs.astral.sh/uv/)
+- Docker + Docker Compose (для интеграционных тестов и `tox`-прогонов)
 
-### Methods
+Примечание: тесты в CI/tox гоняются на Python `3.7-3.14`.
 
-`change_app_ses_id(self, new_ses_id, ses_id=None)`
-:   Изменяет сессию.
-        [не уверена, что корректно работает на стороне меллофона]
+## Установка
 
-    Arguments:
-        new_ses_id {str} -- новая сессия
+```bash
+uv sync --extra httpx
+# или
+uv sync --extra requests
+```
 
-    Keyword Arguments:
-        old_ses_id {str} -- старая сессия (по умолчанию текущая) (default: {None})
+Примечание:
 
-`change_pwd(self, old_pwd, new_pwd, ses_id=None)`
-:   Изменяет пароль пользователя по sesid
-        [дополнительная проверка по паролю]
+- `async`-методы требуют `httpx` (`mellophone-valve[httpx]`).
+- При установке только `requests` доступны только `sync`-методы.
 
-    Arguments:
-        old_pwd {str} -- Старый пароли
-        new_pwd {str} -- Новый пароль
+## Быстрый старт
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+```python
+from mellophone import Mellophone
 
-    Returns:
-        [type] -- [description]
+client = Mellophone(base_url="http://localhost:8082/mellophone")
+session_id = client.login("user", "password")
+print(client.is_authenticated(session_id))
+client.logout(session_id)
+```
 
-`check_credentials(self, login, password, gp=None, ip=None)`
-:   Возвращает информацию о пользователе, если пара логин-пароль верна
+## API клиента
 
-    Arguments:
-        login {str} -- Логин
-        password {str} -- Пароль
+Класс `Mellophone` поддерживает пары методов `sync/async`:
 
-    Keyword Arguments:
-        gp {str} -- Группа провайдеров (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
+Авторизация и сессия:
 
-    Returns:
-        json -- Информация о пользователе
+- `login/login_async` - выполняет логин, сохраняет `session_id` в клиенте и возвращает `ses_id` (если не передан, генерируется автоматически).
+- `logout/logout_async` - завершает сессию по `ses_id` (или по `self.session_id`).
+- `is_authenticated/is_authenticated_async` - проверяет сессию; возвращает словарь `user` при успехе или `False` при `403`.
 
-`check_name(self, name, ses_id=None)`
-:   Возвращает информацию о пользователе name
-        [любой аутентифицированный пользователь может получить инфу о любом другом пользователе]
+Проверки:
 
-    Arguments:
-        name {str} -- Имя пользователя
+- `check_credentials/check_credentials_async` - проверяет логин/пароль без создания сессии, возвращает данные `user`.
+- `check_name/check_name_async` - проверяет логин/имя пользователя в текущей/переданной сессии, возвращает данные `user`.
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+Пароли и идентификатор сессии:
 
-    Returns:
-        json -- информация о пользователе
+- `change_pwd/change_pwd_async` - меняет пароль пользователя, связанного с переданным `ses_id` (если `ses_id` не передан, используется `self.session_id`).
+- `change_user_pwd/change_user_pwd_async` - меняет пароль указанного пользователя `username`.
+- `change_app_ses_id/change_app_ses_id_async` - меняет `ses_id` сессии (`oldsesid` -> `newsesid`); `self.session_id` обновляется только если `ses_id` не передан.
 
-`get_provider_list(self, login, password, gp=None, ip=None)`
-:   Возвращает информацию о провайдерах с группой gp
+Провайдеры и списки пользователей:
 
-    Arguments:
-        login {str} -- Пользователь, под которым можно получить группу провайдеров
-        password {str} -- Пароль пользователя, под которым можно получить группу провайдеров
+- `import_gp/import_gp_async` - импортирует groups/providers, возвращает список строк из ответа API.
+- `get_provider_list/get_provider_list_async` - возвращает список/структуру провайдеров по учетным данным.
+- `get_user_list/get_user_list_async` - возвращает список пользователей по `gp` (опционально `ip`, `pid`); токен берется из `self.user_manage_token`.
 
-    Keyword Arguments:
-        gp {str} -- Группа провайдеров (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
+Настройки и user management:
 
-    Returns:
-        list -- Список провайдеров
+- `set_settings/set_settings_async` - обновляет настройки (`lockout_time`, `login_attempts_allowed`); токен берется из `self.set_settings_token`.
+- `create_user/create_user_async` - создает пользователя (`POST /user/create`, XML payload); токен берется из `self.user_manage_token`.
+- `update_user/update_user_async` - обновляет пользователя по `sid` (`POST /user/{sid}`, XML payload); токен берется из `self.user_manage_token`.
+- `delete_user/delete_user_async` - удаляет пользователя по `sid` (`DELETE /user/{sid}`); токен берется из `self.user_manage_token`.
 
-`get_user_list(self, token, gp, ip=None, pid=None)`
-:   Возвращает информацию о пользователях провайдера
+Состояние сессии:
 
-    Arguments:
-        token {str} -- Токен безопасности
-        gp {str} -- Группа провайдеров
+- `set_state/set_state_async` - сохраняет произвольное состояние для `ses_id`.
+- `get_state/get_state_async` - возвращает ранее сохраненное состояние для `ses_id`.
 
-    Keyword Arguments:
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
-        pid {str} -- идентификатор провайдера (default: {None})
+Также доступны исключения:
 
-    Returns:
-        list -- Список пользователей провайдера
+- `HttpError` - базовая HTTP-ошибка API (`status_code`, `response_text`).
+- `BadRequestError` - ошибка `HTTP 400` (некорректный запрос).
+- `UnauthorizedError` - ошибка `HTTP 401` (неавторизован).
+- `ForbiddenError` - ошибка `HTTP 403` (доступ запрещен).
+- `NotFoundError` - ошибка `HTTP 404` (ресурс не найден).
+- `ServerError` - серверная ошибка `HTTP 5xx`.
+- `TransportError` - транспортная ошибка HTTP-клиента (сеть/соединение).
+- `RequestTimeoutError` - превышен таймаут запроса.
+- `ResponseParseError` - не удалось распарсить XML-ответ API.
+- `MissingTokenError` - в клиенте не задан обязательный токен (`set_settings_token` или `user_manage_token`).
+- `AsyncClientUnavailableError` - вызваны `async`-методы без установленного `httpx`.
 
-`import_gp(self)`
-:   Returns:
-        list -- список групп провайдеров
+## Локальный стенд через Docker
 
-`is_authenticated(self, ses_id=None)`
-:   Возвращает информацию об аутентифицированном пользователе, если сессия аутентифицирована
+```bash
+docker compose up -d
+```
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+Сервисы:
 
-    Returns:
-        json -- информация о пользователе
+- Mellophone: `http://localhost:8082/mellophone`
+- PostgreSQL: `localhost:5430`
 
-`login(self, login, password, ses_id=None, gp=None, ip=None)`
-:   Аутентифицирует сессию;
-        Если пара "логин-пароль" аутентифицирует сессию приложения ses_id;
-        Если пара "логин-пароль" неверна, выкидывает Forbidden
+Инициализация БД выполняется автоматически из `docker-config/init-db.sql` через mount в `db:/docker-entrypoint-initdb.d/init-db.sql`.
 
-    Arguments:
-        login {str} -- Логин пользователя
-        password {str} -- Пароль пользователя
+Важно: скрипты из `/docker-entrypoint-initdb.d` выполняются только при первичной инициализации Postgres volume.
 
-    Keyword Arguments:
-        ses_id {str} -- Идентификатор сессии (default: {None})
-        gp {str} -- Группа провайдеров (когда меллофон подключен к нескольким источникам данных) (default: {None})
-        ip {str} -- ip компьютера пользователя для передачи в ф-цию проверки пользователя по логину и ip (default: {None})
+## Линт
 
-`logout(self, ses_id=None)`
-:   Разаутентифицирует указанную сессию приложения или текущую
+```bash
+uv run pre-commit run --all-files
+```
 
-    Keyword Arguments:
-        ses_id {str} -- id сессии (по умолчанию текущая) (default: {None})
+## Тесты
 
-`set_settings(self, token, lockout_time=None, login_attempts_allowed=None)`
-:   Изменение настроек меллофона
+Все тесты:
 
-    Arguments:
-        token {str} -- Токен безопасности
+```bash
+uv run pytest -q
+```
 
-    Keyword Arguments:
-        lockouttime {int} -- время в минутах, на которое будет блокироваться пользователь (default: {None})
-        loginattemptsallowed {str} -- разрешенное количество неудачных попыток ввода пароля (default: {None})
+Только unit-тесты:
 
-    Returns:
-        [type] -- [description]
+```bash
+uv run pytest tests/test_mellophone.py -q
+```
+
+Интеграционные:
+
+```bash
+uv run pytest tests/test_integration_mellophone.py -q
+```
+
+Матрица `tox` (Docker, Python `3.7-3.14`):
+
+```bash
+tox -p auto
+```
+
+## Coverage
+
+```bash
+uv run --with coverage --with pytest-cov pytest --cov=. --cov-report=term-missing -q
+```
+
+## Релизы
+
+Релиз создается автоматически при `push` в `master` workflow'ом `CI Push`.
+
+Условия для релиза:
+
+- `Tests` завершился успешно.
+- `Version Check` завершился успешно (версия в `pyproject.toml` увеличена по правилам `vuh`).
+
+Как формируется релиз:
+
+- версия берется из `vuh lv -q`;
+- создается тег формата `v<version>` и GitHub Release;
+- если тег уже существует, релиз пропускается.
+
+## VS Code Tasks
+
+В `.vscode/tasks.json` добавлены задачи:
+
+- `docker:stop` - остановить `docker compose` и удалить volume (`docker compose down -v`).
+- `docker:start` - поднять локальный стенд в фоне (`docker compose up -d`).
+- `docker:restart` - последовательно выполнить `docker:stop` и `docker:start`.
+- `uv:sync` - синхронизировать окружение и зависимости (`uv sync`).
+- `uv:update` - обновить lock-файл зависимостей (`uv lock --upgrade`).
+- `pytest:coverage` - запустить тесты с coverage в терминал.
+- `pytest:coverage:html` - запустить тесты с coverage в терминал и HTML-отчет (`htmlcov/`).
+- `tox:test` - запустить матрицу `tox` (`tox -p auto`).
+- `lint:ruff` - проверить код через `ruff check .`.
+- `lint:ruff:fix` - исправить автоисправляемые проблемы `ruff`.
+- `lint:pre-commit` - прогнать `pre-commit` по всем файлам.
