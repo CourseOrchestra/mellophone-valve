@@ -16,16 +16,63 @@ Python-клиент для Mellophone (`sync` + `async`) с unit- и интег�
 
 ## Установка
 
+Из Git (рекомендуется фиксировать тег, например `v3.0.0`):
+
+### pip
+
 ```bash
-uv sync --extra httpx
-# или
-uv sync --extra requests
+pip install "mellophone-valve[httpx] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
+pip install "mellophone-valve[requests] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
+pip install "mellophone-valve[httpx,requests] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
 ```
 
-Примечание:
+### Pipfile (Pipenv)
+
+Для `Pipenv` надежнее указывать Git-зависимость с extras напрямую в `Pipfile`.
+
+```toml
+[packages]
+mellophone-valve = {git = "https://github.com/CourseOrchestra/mellophone-valve.git", ref = "v3.0.0", extras = ["httpx"]}
+# или
+mellophone-valve = {git = "https://github.com/CourseOrchestra/mellophone-valve.git", ref = "v3.0.0", extras = ["requests"]}
+# или
+mellophone-valve = {git = "https://github.com/CourseOrchestra/mellophone-valve.git", ref = "v3.0.0", extras = ["httpx", "requests"]}
+```
+
+### poetry
+
+Для `Poetry` надежнее фиксировать Git-зависимость с extras в `pyproject.toml`:
+
+```toml
+[tool.poetry.dependencies]
+mellophone-valve = { git = "https://github.com/CourseOrchestra/mellophone-valve.git", rev = "v3.0.0", extras = ["httpx"] }
+# или
+mellophone-valve = { git = "https://github.com/CourseOrchestra/mellophone-valve.git", rev = "v3.0.0", extras = ["requests"] }
+# или
+mellophone-valve = { git = "https://github.com/CourseOrchestra/mellophone-valve.git", rev = "v3.0.0", extras = ["httpx", "requests"] }
+```
+
+CLI-вариант для `Poetry`:
+
+```bash
+poetry add "git+https://github.com/CourseOrchestra/mellophone-valve.git#v3.0.0" --extras httpx
+poetry add "git+https://github.com/CourseOrchestra/mellophone-valve.git#v3.0.0" --extras requests
+poetry add "git+https://github.com/CourseOrchestra/mellophone-valve.git#v3.0.0" --extras "httpx requests"
+```
+
+### uv
+
+```bash
+uv add "mellophone-valve[httpx] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
+uv add "mellophone-valve[requests] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
+uv add "mellophone-valve[httpx,requests] @ git+https://github.com/CourseOrchestra/mellophone-valve.git@v3.0.0"
+```
+
+Примечания:
 
 - `async`-методы требуют `httpx` (`mellophone-valve[httpx]`).
 - При установке только `requests` доступны только `sync`-методы.
+- В качестве `ref` можно использовать `tag`, `branch` или `commit SHA`.
 
 ## Быстрый старт
 
