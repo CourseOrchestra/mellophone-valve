@@ -8,10 +8,12 @@ dependencies = []
 
 [project.optional-dependencies]
 httpx = [
-  "httpx>=0.23.0",
+  "httpx>=0.23.0,<0.24.0; python_version < '3.8'",
+  "httpx>=0.28.1; python_version >= '3.13'",
 ]
 requests = [
-  "requests>=2.31.0",
+  "requests>=2.31.0,<2.32.0; python_version < '3.8'",
+  "requests>=2.32.0; python_version >= '3.8'"
 ]
 
 [dependency-groups]
