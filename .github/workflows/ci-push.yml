@@ -16,13 +16,13 @@ jobs:
     name: "Tests"
     uses: ./.github/workflows/tests.yml
 
-#  version-check:
-#    name: "Version Check"
-#    uses: ./.github/workflows/version-check.yml
+  version-check:
+    name: "Version Check"
+    uses: ./.github/workflows/version-check.yml
 
   release:
     name: "Release"
-    needs: [tests]
+    needs: [tests, version-check]
     runs-on: ubuntu-latest
     env:
       VUH_VERSION: "v2.13.0"

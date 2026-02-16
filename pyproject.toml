@@ -1,27 +1,27 @@
 [project]
 name = "mellophone-valve"
-version = "3.0.0"
-description = "Add your description here"
+version = "3.1.0"
+description = "Python-клиент для Mellophone"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.7"
 dependencies = []
 
 [project.optional-dependencies]
 httpx = [
-  "httpx>=0.28.1",
+  "httpx>=0.23.0",
 ]
 requests = [
-  "requests>=2.32.0",
+  "requests>=2.31.0",
 ]
 
 [dependency-groups]
 dev = [
-  "httpx>=0.28.1",
-  "pre-commit>=4.3.0",
-  "pytest>=9.0.2",
-  "pyyaml>=6.0.3",
-  "requests>=2.32.0",
-  "ruff>=0.15.1",
+  "httpx>=0.28.1; python_version >= '3.13'",
+  "pre-commit>=4.3.0; python_version >= '3.13'",
+  "pytest>=9.0.2; python_version >= '3.13'",
+  "pyyaml>=6.0.3; python_version >= '3.13'",
+  "requests>=2.32.0; python_version >= '3.13'",
+  "ruff>=0.15.1; python_version >= '3.13'",
 ]
 
 [build-system]
