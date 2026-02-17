@@ -129,14 +129,14 @@ asyncio.run(async_call())
 
 - `import_gp/import_gp_async` - импортирует groups/providers, возвращает список строк из ответа API.
 - `get_provider_list/get_provider_list_async` - возвращает список или структуру провайдеров по учетным данным.
-- `get_user_list/get_user_list_async` - возвращает список пользователей по `gp` (опционально `ip`, `pid`); токен берется из `self.user_manage_token`.
+- `get_user_list/get_user_list_async` - возвращает список пользователей по `gp` (опционально `ip`, `pid`); токен берется из `self.token_user_manage`.
 
 Настройки и user management:
 
-- `set_settings/set_settings_async` - обновляет настройки (`lockout_time`, `login_attempts_allowed`); токен берется из `self.set_settings_token`.
-- `create_user/create_user_async` - создает пользователя (`POST /user/create`, XML payload); токен берется из `self.user_manage_token`.
-- `update_user/update_user_async` - обновляет пользователя по `sid` (`POST /user/{sid}`, XML payload); токен берется из `self.user_manage_token`.
-- `delete_user/delete_user_async` - удаляет пользователя по `sid` (`DELETE /user/{sid}`); токен берется из `self.user_manage_token`.
+- `set_settings/set_settings_async` - обновляет настройки (`lockout_time`, `login_attempts_allowed`); токен берется из `self.token_set_settings`.
+- `create_user/create_user_async` - создает пользователя (`POST /user/create`, XML payload); токен берется из `self.token_user_manage`.
+- `update_user/update_user_async` - обновляет пользователя по `sid` (`POST /user/{sid}`, XML payload); токен берется из `self.token_user_manage`.
+- `delete_user/delete_user_async` - удаляет пользователя по `sid` (`DELETE /user/{sid}`); токен берется из `self.token_user_manage`.
 
 Состояние сессии:
 
@@ -154,5 +154,9 @@ asyncio.run(async_call())
 - `TransportError` - транспортная ошибка HTTP-клиента (сеть/соединение).
 - `RequestTimeoutError` - превышен таймаут запроса.
 - `ResponseParseError` - не удалось распарсить XML-ответ API.
-- `MissingTokenError` - в клиенте не задан обязательный токен (`set_settings_token` или `user_manage_token`).
+- `MissingTokenError` - в клиенте не задан обязательный токен (`token_set_settings` или `token_user_manage`).
+
+Совместимость:
+
+- Старые имена `set_settings_token` и `user_manage_token` сохранены как deprecated-алиасы и вызывают `DeprecationWarning`.
 - `AsyncClientUnavailableError` - вызваны `async`-методы без установленного `httpx`.

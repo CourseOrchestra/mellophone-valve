@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import warnings
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlencode
@@ -34,15 +34,88 @@ except ImportError:  # pragma: no cover - depends on installed extra
     requests = None  # type: ignore[assignment]
 
 
-@dataclass
 class Mellophone:
     """Единый клиент Mellophone с синхронными и асинхронными методами."""
 
     base_url: str
-    set_settings_token: Optional[str] = None
-    user_manage_token: Optional[str] = None
-    session_id: Optional[str] = None
-    timeout: float = 10.0
+    token_set_settings: Optional[str]
+    token_user_manage: Optional[str]
+    session_id: Optional[str]
+    timeout: float
+
+    def __init__(
+        self,
+        base_url: str,
+        token_set_settings: Optional[str] = None,
+        token_user_manage: Optional[str] = None,
+        session_id: Optional[str] = None,
+        timeout: float = 10.0,
+        set_settings_token: Optional[str] = None,
+        user_manage_token: Optional[str] = None,
+    ) -> None:
+        """Инициализирует клиент и поддерживает устаревшие имена токенов."""
+        if set_settings_token is not None:
+            warnings.warn(
+                "`set_settings_token` is deprecated, use `token_set_settings`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if token_set_settings is None:
+                token_set_settings = set_settings_token
+        if user_manage_token is not None:
+            warnings.warn(
+                "`user_manage_token` is deprecated, use `token_user_manage`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if token_user_manage is None:
+                token_user_manage = user_manage_token
+
+        self.base_url = base_url
+        self.token_set_settings = token_set_settings
+        self.token_user_manage = token_user_manage
+        self.session_id = session_id
+        self.timeout = timeout
+
+    @property
+    def set_settings_token(self) -> Optional[str]:
+        """Устаревший алиас для token_set_settings."""
+        warnings.warn(
+            "`set_settings_token` is deprecated, use `token_set_settings`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.token_set_settings
+
+    @set_settings_token.setter
+    def set_settings_token(self, value: Optional[str]) -> None:
+        """Устаревший сеттер для token_set_settings."""
+        warnings.warn(
+            "`set_settings_token` is deprecated, use `token_set_settings`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.token_set_settings = value
+
+    @property
+    def user_manage_token(self) -> Optional[str]:
+        """Устаревший алиас для token_user_manage."""
+        warnings.warn(
+            "`user_manage_token` is deprecated, use `token_user_manage`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.token_user_manage
+
+    @user_manage_token.setter
+    def user_manage_token(self, value: Optional[str]) -> None:
+        """Устаревший сеттер для token_user_manage."""
+        warnings.warn(
+            "`user_manage_token` is deprecated, use `token_user_manage`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.token_user_manage = value
 
     def _build_url(self, path: str, params: Optional[Dict[str, Any]] = None) -> str:
         """Собирает полный URL запроса с query-параметрами."""
@@ -440,13 +513,13 @@ class Mellophone:
 
     def get_user_list(self, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> Dict[str, Any]:
         """Возвращает список пользователей для провайдера и дополнительных фильтров."""
-        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        token = self._require_token(self.token_user_manage, field_name="token_user_manage")
         response = self._request_text(**self._get_user_list_props(token, gp, ip, pid))
         return self._as_json(response)
 
     async def get_user_list_async(self, gp: str, ip: Optional[str] = None, pid: Optional[str] = None) -> Dict[str, Any]:
         """Асинхронно возвращает список пользователей для провайдера и фильтров."""
-        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        token = self._require_token(self.token_user_manage, field_name="token_user_manage")
         response = await self._request_text_async(**self._get_user_list_props(token, gp, ip, pid))
         return self._as_json(response)
 
@@ -456,7 +529,7 @@ class Mellophone:
         login_attempts_allowed: Optional[int] = None,
     ) -> RequestParams:
         """Формирует параметры запроса для обновления настроек сервиса."""
-        token = self._require_token(self.set_settings_token, field_name="set_settings_token")
+        token = self._require_token(self.token_set_settings, field_name="token_set_settings")
         return RequestParams(
             path="setsettings",
             params={
@@ -484,7 +557,7 @@ class Mellophone:
 
     def _create_user_props(self, payload: Dict[str, Any]) -> RequestArgs:
         """Формирует аргументы запроса для создания пользователя."""
-        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        token = self._require_token(self.token_user_manage, field_name="token_user_manage")
         return RequestArgs(
             path="user/create",
             method="POST",
@@ -505,7 +578,7 @@ class Mellophone:
 
     def _update_user_props(self, sid: str, user: Dict[str, Any]) -> RequestArgs:
         """Формирует аргументы запроса для обновления пользователя."""
-        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        token = self._require_token(self.token_user_manage, field_name="token_user_manage")
         return RequestArgs(
             path=f"/user/{sid}",
             method="POST",
@@ -524,7 +597,7 @@ class Mellophone:
 
     def _delete_user_props(self, sid: str) -> RequestArgs:
         """Формирует аргументы запроса для удаления пользователя."""
-        token = self._require_token(self.user_manage_token, field_name="user_manage_token")
+        token = self._require_token(self.token_user_manage, field_name="token_user_manage")
         return RequestArgs(path=f"/user/{sid}", method="DELETE", params={"token": token})
 
     def delete_user(self, sid: str) -> None:

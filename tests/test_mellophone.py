@@ -145,17 +145,43 @@ def test_xml_to_json_with_repeated_tags():
 def test_client_options_are_stored():
     client = mellophone.Mellophone(
         "http://example.com",
-        set_settings_token="set-token",
-        user_manage_token="user-token",
+        token_set_settings="set-token",
+        token_user_manage="user-token",
         session_id="ses-1",
         timeout=7.5,
     )
 
     assert client.base_url == "http://example.com"
-    assert client.set_settings_token == "set-token"
-    assert client.user_manage_token == "user-token"
+    assert client.token_set_settings == "set-token"
+    assert client.token_user_manage == "user-token"
     assert client.session_id == "ses-1"
     assert client.timeout == 7.5
+
+
+def test_client_deprecated_token_aliases_work_and_warn():
+    with pytest.warns(DeprecationWarning, match="set_settings_token"):
+        with pytest.warns(DeprecationWarning, match="user_manage_token"):
+            client = mellophone.Mellophone(
+                "http://example.com",
+                set_settings_token="set-token-old",
+                user_manage_token="user-token-old",
+            )
+
+    assert client.token_set_settings == "set-token-old"
+    assert client.token_user_manage == "user-token-old"
+
+    with pytest.warns(DeprecationWarning, match="set_settings_token"):
+        assert client.set_settings_token == "set-token-old"
+    with pytest.warns(DeprecationWarning, match="user_manage_token"):
+        assert client.user_manage_token == "user-token-old"
+
+    with pytest.warns(DeprecationWarning, match="set_settings_token"):
+        client.set_settings_token = "set-token-updated"
+    with pytest.warns(DeprecationWarning, match="user_manage_token"):
+        client.user_manage_token = "user-token-updated"
+
+    assert client.token_set_settings == "set-token-updated"
+    assert client.token_user_manage == "user-token-updated"
 
 
 def test_build_url_skips_none_params():
@@ -445,7 +471,7 @@ def test_set_settings_raises_when_set_settings_token_missing():
     client = mellophone.Mellophone("http://example.com")
     with pytest.raises(mellophone.MissingTokenError) as exc:
         client.set_settings(lockout_time=5)
-    assert "set_settings_token" in str(exc.value)
+    assert "token_set_settings" in str(exc.value)
 
 
 def test_user_manage_methods_raise_when_user_manage_token_missing():
