@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import warnings
 import xml.etree.ElementTree as ET
 from http import HTTPStatus
@@ -227,9 +228,15 @@ class Mellophone:
         """Проверяет и нормализует payload пользователя для API-вызовов."""
         if not user:
             raise ValueError("user data cannot be empty")
-        payload = dict(user)
-        if "password" in payload:
-            payload["pwd"] = payload.pop("password")
+        payload: Dict[str, Any] = {}
+        for key, val in list(user.items())[:]:
+            if key == "password":
+                key = "pwd"
+            elif isinstance(val, (list, dict)):
+                val = json.dumps(val, ensure_ascii=False)
+            elif val is None:
+                val = ""
+            payload[key] = val
         return payload
 
     @staticmethod

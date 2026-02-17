@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Dict
 from uuid import uuid4
 
@@ -119,9 +120,11 @@ def test_it_user_additional_fields(mode: str, integration_client: Mellophone) ->
         "field_float": 4.5,
         "field_bool": False,
         "field_none": None,
-        "field_empty_str": "",
-        "field_empty_list": [],
+        "field_str_empty": "",
+        "field_list_empty": [],
         "field_list": ["org1"],
+        "field_dict": {"org1": {"name": "google", "age": 15}},
+        "field_dict_empty": {},
     }
     update_payload = {
         "sid": sid,
@@ -141,8 +144,14 @@ def test_it_user_additional_fields(mode: str, integration_client: Mellophone) ->
         users_after_create = users_from_list(invoke(integration_client, mode, "get_user_list", gp="not_defined"))
         created_user = next((user for user in users_after_create if user.get("sid") == sid), None)
         assert created_user is not None
-        for key in filter(lambda x: x not in ('password', 'pwd'), create_payload):
+        for key in ("field_str", "field_int", "field_float", "field_bool", "field_str_empty"):
             assert created_user.get(key) == str(create_payload[key])
+
+        for key in ("field_list", "field_list_empty", "field_dict", "field_dict_empty"):
+            assert created_user.get(key) == json.dumps(create_payload[key], ensure_ascii=False)
+            assert json.loads(created_user.get(key)) == create_payload[key]
+
+        assert created_user.get("field_none") == ""
 
         invoke(integration_client, mode, "update_user", sid, update_payload)
         assert_credentials_invalid(integration_client, mode, login, pwd_1)
@@ -151,8 +160,7 @@ def test_it_user_additional_fields(mode: str, integration_client: Mellophone) ->
         users_after_update = users_from_list(invoke(integration_client, mode, "get_user_list", gp="not_defined"))
         updated_user = next((user for user in users_after_update if user.get("sid") == sid), None)
         assert updated_user is not None
-        for key in filter(lambda x: x not in ('password', 'pwd'), update_payload):
-            assert updated_user.get(key) == str(update_payload[key])
+        for key in ("field_str", "field_int", "field_float", "field_bool"):
+            assert updated_user.get(key) == str(update_payload[key]), key
     finally:
-        ...
-        # invoke(integration_client, mode, "delete_user", sid)
+        invoke(integration_client, mode, "delete_user", sid)
