@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 import mellophone
@@ -26,14 +28,18 @@ def test_client_options_are_stored():
     assert client.timeout == 7.5
 
 
-def test_client_deprecated_token_aliases_work_and_warn():
-    with pytest.warns(DeprecationWarning, match="set_settings_token"):
-        with pytest.warns(DeprecationWarning, match="user_manage_token"):
-            client = mellophone.Mellophone(
-                "http://example.com",
-                set_settings_token="set-token-old",
-                user_manage_token="user-token-old",
-            )
+def test_client_deprecated_token_aliases():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        client = mellophone.Mellophone(
+            "http://example.com",
+            set_settings_token="set-token-old",
+            user_manage_token="user-token-old",
+        )
+
+    deprecation_messages = [str(item.message) for item in caught if isinstance(item.message, DeprecationWarning)]
+    assert any("set_settings_token" in message for message in deprecation_messages)
+    assert any("user_manage_token" in message for message in deprecation_messages)
 
     assert client.token_set_settings == "set-token-old"
     assert client.token_user_manage == "user-token-old"
