@@ -52,7 +52,7 @@ jobs:
         env:
           COVERAGE_FILE: coverage-unit.dat
         run: >
-          pytest -q tests/test_mellophone.py tests/test_structures.py
+          pytest -q tests/unit
           --cov=src/mellophone
           --cov-report=
 
@@ -132,7 +132,7 @@ jobs:
         env:
           COVERAGE_FILE: coverage-integration.dat
         run: >
-          pytest -q tests/test_integration_mellophone.py
+          pytest -q tests/integration
           --cov=src/mellophone
           --cov-report=
 
