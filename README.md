@@ -76,6 +76,8 @@ uv add "mellophone-valve[httpx,requests] @ git+https://github.com/CourseOrchestr
 
 ## Быстрый старт
 
+### Синхронный
+
 ```python
 from mellophone import Mellophone
 
@@ -83,6 +85,23 @@ client = Mellophone(base_url="http://localhost:8082/mellophone")
 session_id = client.login("user", "password")
 print(client.is_authenticated(session_id))
 client.logout(session_id)
+```
+
+### Асинхронный
+
+```python
+import asyncio
+from mellophone import Mellophone
+
+
+async def async_call():
+    client = Mellophone(base_url="http://localhost:8082/mellophone")
+    session_id = await client.login_async("user", "password")
+    print(await client.is_authenticated_async(session_id))
+    await client.logout_async(session_id)
+
+
+asyncio.run(async_call())
 ```
 
 ## API клиента
