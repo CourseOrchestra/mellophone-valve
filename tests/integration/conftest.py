@@ -123,7 +123,7 @@ def local_error_server() -> Iterator[str]:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        host, port = server.server_address
+        host, port = server.server_address  # ty:ignore[invalid-assignment]
         yield f"http://{host}:{port}"
     finally:
         server.shutdown()

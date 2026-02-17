@@ -100,3 +100,59 @@ def test_it_state_session_settings_and_delete(mode: str, integration_client: Mel
 
     invoke(integration_client, mode, "delete_user", sid)
     assert_credentials_invalid(integration_client, mode, login, pwd_2)
+
+
+@pytest.mark.parametrize("mode", ["sync", "async"], ids=["sync", "async"])
+def test_it_user_additional_fields(mode: str, integration_client: Mellophone) -> None:
+    unique = uuid4().hex[:8]
+    sid = f"it-extra-{mode}-{unique}"
+    login = f"it_extra_{mode}_{unique}"
+    pwd_1 = "pwd_1"
+    pwd_2 = "pwd_2"
+
+    create_payload = {
+        "sid": sid,
+        "login": login,
+        "password": pwd_1,
+        "field_str": f"{login}@example.com",
+        "field_int": 20,
+        "field_float": 4.5,
+        "field_bool": False,
+        "field_none": None,
+        "field_empty_str": "",
+        "field_empty_list": [],
+        "field_list": ["org1"],
+    }
+    update_payload = {
+        "sid": sid,
+        "login": login,
+        "pwd": pwd_2,
+        "field_str": f"{login}+updated@example.com",
+        "field_int": 30,
+        "field_float": 9.75,
+        "field_bool": True,
+        "field_list": ["org1", "org2"],
+    }
+
+    try:
+        invoke(integration_client, mode, "create_user", create_payload)
+        assert_credentials_valid(integration_client, mode, login, pwd_1, sid)
+
+        users_after_create = users_from_list(invoke(integration_client, mode, "get_user_list", gp="not_defined"))
+        created_user = next((user for user in users_after_create if user.get("sid") == sid), None)
+        assert created_user is not None
+        for key in filter(lambda x: x not in ('password', 'pwd'), create_payload):
+            assert created_user.get(key) == str(create_payload[key])
+
+        invoke(integration_client, mode, "update_user", sid, update_payload)
+        assert_credentials_invalid(integration_client, mode, login, pwd_1)
+        assert_credentials_valid(integration_client, mode, login, pwd_2, sid)
+
+        users_after_update = users_from_list(invoke(integration_client, mode, "get_user_list", gp="not_defined"))
+        updated_user = next((user for user in users_after_update if user.get("sid") == sid), None)
+        assert updated_user is not None
+        for key in filter(lambda x: x not in ('password', 'pwd'), update_payload):
+            assert updated_user.get(key) == str(update_payload[key])
+    finally:
+        ...
+        # invoke(integration_client, mode, "delete_user", sid)
