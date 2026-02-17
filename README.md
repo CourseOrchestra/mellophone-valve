@@ -76,6 +76,8 @@ uv add "mellophone-valve[httpx,requests] @ git+https://github.com/CourseOrchestr
 
 ## Быстрый старт
 
+### Синхронный
+
 ```python
 from mellophone import Mellophone
 
@@ -83,6 +85,23 @@ client = Mellophone(base_url="http://localhost:8082/mellophone")
 session_id = client.login("user", "password")
 print(client.is_authenticated(session_id))
 client.logout(session_id)
+```
+
+### Асинхронный
+
+```python
+import asyncio
+from mellophone import Mellophone
+
+
+async def async_call():
+    client = Mellophone(base_url="http://localhost:8082/mellophone")
+    session_id = await client.login_async("user", "password")
+    print(await client.is_authenticated_async(session_id))
+    await client.logout_async(session_id)
+
+
+asyncio.run(async_call())
 ```
 
 ## API клиента
@@ -110,14 +129,14 @@ client.logout(session_id)
 
 - `import_gp/import_gp_async` - импортирует groups/providers, возвращает список строк из ответа API.
 - `get_provider_list/get_provider_list_async` - возвращает список или структуру провайдеров по учетным данным.
-- `get_user_list/get_user_list_async` - возвращает список пользователей по `gp` (опционально `ip`, `pid`); токен берется из `self.user_manage_token`.
+- `get_user_list/get_user_list_async` - возвращает список пользователей по `gp` (опционально `ip`, `pid`); токен берется из `self.token_user_manage`.
 
 Настройки и user management:
 
-- `set_settings/set_settings_async` - обновляет настройки (`lockout_time`, `login_attempts_allowed`); токен берется из `self.set_settings_token`.
-- `create_user/create_user_async` - создает пользователя (`POST /user/create`, XML payload); токен берется из `self.user_manage_token`.
-- `update_user/update_user_async` - обновляет пользователя по `sid` (`POST /user/{sid}`, XML payload); токен берется из `self.user_manage_token`.
-- `delete_user/delete_user_async` - удаляет пользователя по `sid` (`DELETE /user/{sid}`); токен берется из `self.user_manage_token`.
+- `set_settings/set_settings_async` - обновляет настройки (`lockout_time`, `login_attempts_allowed`); токен берется из `self.token_set_settings`.
+- `create_user/create_user_async` - создает пользователя (`POST /user/create`, XML payload); токен берется из `self.token_user_manage`.
+- `update_user/update_user_async` - обновляет пользователя по `sid` (`POST /user/{sid}`, XML payload); токен берется из `self.token_user_manage`.
+- `delete_user/delete_user_async` - удаляет пользователя по `sid` (`DELETE /user/{sid}`); токен берется из `self.token_user_manage`.
 
 Состояние сессии:
 
@@ -135,5 +154,9 @@ client.logout(session_id)
 - `TransportError` - транспортная ошибка HTTP-клиента (сеть/соединение).
 - `RequestTimeoutError` - превышен таймаут запроса.
 - `ResponseParseError` - не удалось распарсить XML-ответ API.
-- `MissingTokenError` - в клиенте не задан обязательный токен (`set_settings_token` или `user_manage_token`).
+- `MissingTokenError` - в клиенте не задан обязательный токен (`token_set_settings` или `token_user_manage`).
+
+Совместимость:
+
+- Старые имена `set_settings_token` и `user_manage_token` сохранены как deprecated-алиасы и вызывают `DeprecationWarning`.
 - `AsyncClientUnavailableError` - вызваны `async`-методы без установленного `httpx`.
